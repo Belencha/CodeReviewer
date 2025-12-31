@@ -4,13 +4,13 @@ An AI-powered code review agent for GitLab merge requests. This service automati
 
 ## Architecture
 
-This is a **server-only** application that works as follows:
+This is a **server-only** application designed for deployment in private corporate VPNs. It works as follows:
 
 1. **GitLab Webhook** → Receives webhook events when merge requests are created or updated
 2. **Code Analysis** → Fetches the diff and analyzes it using AI (OpenAI)
 3. **Comment Posting** → Posts review comments directly to the GitLab merge request
 
-No client-side application is needed. The service runs as a background process that listens for webhook events.
+No client-side application is needed. The service runs as a background process on an Ubuntu VM inside your corporate VPN, listening for webhook events from your private GitLab instance.
 
 ## Features
 
@@ -24,8 +24,11 @@ No client-side application is needed. The service runs as a background process t
 
 ### Prerequisites
 
-- Node.js 18+ and npm
-- GitLab account with a Personal Access Token
+- **Deployment Environment**: Ubuntu VM inside your corporate VPN with:
+  - Network access to your private GitLab instance
+  - Internet access (for OpenAI API)
+- Node.js 18+ and npm (or Docker)
+- GitLab Personal Access Token with `api` scope
 - OpenAI API key
 
 ### Installation
@@ -48,9 +51,10 @@ cp .env.example .env
 
 4. Configure your `.env` file:
    - `GITLAB_TOKEN`: Your GitLab Personal Access Token (needs `api` scope)
-   - `GITLAB_HOST`: Your GitLab instance URL (default: `https://gitlab.com`)
+   - `GITLAB_HOST`: Your **private** GitLab instance URL (e.g., `https://gitlab.company.internal`)
    - `OPENAI_API_KEY`: Your OpenAI API key
    - `OPENAI_MODEL`: Model to use (default: `gpt-4-turbo-preview`)
+   - `PORT`: Port for the service (default: 3000)
 
 ### Running the Service
 
@@ -67,15 +71,49 @@ npm start
 
 The service will run on `http://localhost:3000` by default.
 
+## Deployment
+
+### Quick Start with Docker (Recommended)
+
+1. **On your Ubuntu VM inside the VPN:**
+   ```bash
+   git clone <repository-url>
+   cd CodeReviewer
+   cp .env.example .env
+   # Edit .env with your configuration
+   docker-compose up -d
+   ```
+
+2. **Verify it's running:**
+   ```bash
+   curl http://localhost:3000/health
+   docker-compose logs -f
+   ```
+
+See [deployment/README.md](deployment/README.md) for detailed deployment instructions including:
+- Docker deployment
+- Direct Node.js deployment with systemd
+- Network configuration for private VPNs
+- Troubleshooting guide
+
 ## GitLab Webhook Configuration
 
-1. Go to your GitLab project → Settings → Webhooks
-2. Add a new webhook with:
-   - **URL**: `https://your-server.com/webhook/gitlab`
+1. **Determine your webhook URL:**
+   - If service runs on VM accessible from GitLab: `http://<vm-ip>:3000/webhook/gitlab`
+   - If using internal domain: `http://code-reviewer.company.internal:3000/webhook/gitlab`
+   - The URL must be reachable from your GitLab instance within the VPN
+
+2. **Configure webhook in GitLab:**
+   - Go to your GitLab project → Settings → Webhooks
+   - **URL**: Your internal webhook URL (see above)
    - **Trigger**: Select "Merge request events"
    - **Secret token** (optional): Set `WEBHOOK_SECRET` in your `.env`
+   - **Enable SSL verification**: Disable if using HTTP (use HTTPS in production)
 
-3. Save the webhook
+3. **Test the webhook:**
+   - Create a test merge request
+   - Check service logs to verify webhook was received
+   - Verify comments appear on the merge request
 
 ## How It Works
 
@@ -101,6 +139,12 @@ CodeReviewer/
 │   │   └── gitlab.ts           # TypeScript types for GitLab
 │   └── utils/
 │       └── logger.ts           # Logging utility
+├── deployment/
+│   ├── README.md               # Detailed deployment guide
+│   └── systemd/
+│       └── code-reviewer.service  # systemd service file
+├── Dockerfile                  # Docker container definition
+├── docker-compose.yml          # Docker Compose configuration
 ├── package.json
 ├── tsconfig.json
 └── README.md
@@ -128,9 +172,22 @@ Consider adding rate limiting to avoid overwhelming GitLab or OpenAI APIs when p
 
 ## Troubleshooting
 
-- **Webhook not received**: Check that your server is publicly accessible and the webhook URL is correct
+- **Webhook not received**: 
+  - Verify the service is running: `docker-compose ps` or `systemctl status code-reviewer`
+  - Check if webhook URL is accessible from GitLab: `curl http://<vm-ip>:3000/health`
+  - Verify firewall rules allow traffic on the configured port
+  - Check service logs for errors
+  
+- **Cannot connect to GitLab**:
+  - Verify `GITLAB_HOST` uses your internal GitLab URL (not gitlab.com)
+  - Test connectivity: `curl -H "PRIVATE-TOKEN: <token>" https://<gitlab-host>/api/v4/user`
+  - Ensure VPN network routing is correct
+  
 - **No comments posted**: Verify your GitLab token has the correct permissions (`api` scope)
-- **AI errors**: Check your OpenAI API key and account credits
+
+- **AI errors**: Check your OpenAI API key, account credits, and internet connectivity from the VM
+
+See [deployment/README.md](deployment/README.md) for more detailed troubleshooting.
 
 ## License
 
