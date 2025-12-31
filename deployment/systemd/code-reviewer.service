@@ -1,0 +1,20 @@
+[Unit]
+Description=CodeReviewer - AI Code Review Agent for GitLab
+After=network.target
+
+[Service]
+Type=simple
+User=code-reviewer
+WorkingDirectory=/opt/code-reviewer
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/code-reviewer/.env
+ExecStart=/usr/bin/node /opt/code-reviewer/dist/index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=code-reviewer
+
+[Install]
+WantedBy=multi-user.target
+
