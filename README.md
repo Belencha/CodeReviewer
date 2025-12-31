@@ -34,6 +34,8 @@ No client-side application is needed. The service runs as a background process o
 
 ### Installation
 
+#### For VMs with Internet Access:
+
 1. Clone the repository:
 ```bash
 git clone <your-repo-url>
@@ -44,6 +46,27 @@ cd CodeReviewer
 ```bash
 npm install
 ```
+
+3. Create a `.env` file from the example:
+
+#### For VMs without Internet Access (Offline Deployment):
+
+Since your VM has no internet connection, you'll need to bundle everything on a machine with internet and transfer it.
+
+**Quick method:**
+```bash
+# On your local machine (with internet):
+./scripts/offline-bundle.sh
+
+# Transfer to VM:
+scp -r code-reviewer-offline user@vm-ip:/tmp/
+
+# On the VM:
+cd /tmp/code-reviewer-offline
+./deploy.sh
+```
+
+See [deployment/OFFLINE_DEPLOYMENT.md](deployment/OFFLINE_DEPLOYMENT.md) for detailed offline deployment instructions.
 
 3. Create a `.env` file from the example:
 ```bash
