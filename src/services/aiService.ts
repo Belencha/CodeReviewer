@@ -45,7 +45,7 @@ export class AIService {
   ): Promise<ReviewComment[]> {
     try {
       const prompt = this.buildReviewPrompt(diff, mrTitle, mrDescription);
-      
+
       let responseContent: string;
 
       if (this.provider === 'openai') {
@@ -109,7 +109,7 @@ export class AIService {
 
   private async analyzeWithOllama(prompt: string): Promise<string> {
     const model = process.env.OLLAMA_MODEL || 'codellama:13b';
-    
+
     try {
       const response = await axios.post(
         `${this.ollamaUrl}/api/generate`,
@@ -144,13 +144,13 @@ export class AIService {
       if (jsonMatch) {
         return JSON.parse(jsonMatch[1]);
       }
-      
+
       // Try to find JSON object in the response
       const jsonObjectMatch = content.match(/\{[\s\S]*\}/);
       if (jsonObjectMatch) {
         return JSON.parse(jsonObjectMatch[0]);
       }
-      
+
       // Fallback: try parsing the entire content
       return JSON.parse(content);
     } catch (error) {
