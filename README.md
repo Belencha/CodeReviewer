@@ -7,10 +7,10 @@ An AI-powered code review agent for GitLab merge requests. This service automati
 This is a **server-only** application designed for deployment in private corporate VPNs. It works as follows:
 
 1. **GitLab Webhook** → Receives webhook events when merge requests are created or updated
-2. **Code Analysis** → Fetches the diff and analyzes it using AI (OpenAI)
+2. **Code Analysis** → Fetches the diff and analyzes it using self-hosted AI (Ollama with CodeLlama/Mistral)
 3. **Comment Posting** → Posts review comments directly to the GitLab merge request
 
-No client-side application is needed. The service runs as a background process on an Ubuntu VM inside your corporate VPN, listening for webhook events from your private GitLab instance.
+No client-side application is needed. The service runs as a background process on an Ubuntu VM inside your corporate VPN, listening for webhook events from your private GitLab instance. **All AI processing happens locally** - no internet connection required.
 
 ## Features
 
@@ -26,10 +26,11 @@ No client-side application is needed. The service runs as a background process o
 
 - **Deployment Environment**: Ubuntu VM inside your corporate VPN with:
   - Network access to your private GitLab instance
-  - Internet access (for OpenAI API)
+  - **No internet access required** (uses self-hosted AI)
+  - Minimum 8GB RAM (16GB+ recommended for best performance)
+  - Optional: NVIDIA GPU for faster AI processing
 - Node.js 18+ and npm (or Docker)
 - GitLab Personal Access Token with `api` scope
-- OpenAI API key
 
 ### Installation
 
@@ -50,10 +51,10 @@ cp .env.example .env
 ```
 
 4. Configure your `.env` file:
+   - `AI_PROVIDER`: Set to `ollama` for self-hosted AI (default, recommended)
+   - `OLLAMA_MODEL`: Model to use (default: `codellama:13b` - see [AI Setup Guide](deployment/AI_SETUP.md))
    - `GITLAB_TOKEN`: Your GitLab Personal Access Token (needs `api` scope)
    - `GITLAB_HOST`: Your **private** GitLab instance URL (e.g., `https://gitlab.company.internal`)
-   - `OPENAI_API_KEY`: Your OpenAI API key
-   - `OPENAI_MODEL`: Model to use (default: `gpt-4-turbo-preview`)
    - `PORT`: Port for the service (default: 3000)
 
 ### Running the Service
@@ -84,11 +85,22 @@ The service will run on `http://localhost:3000` by default.
    docker-compose up -d
    ```
 
-2. **Verify it's running:**
+2. **Set up the AI model (first time only):**
+   ```bash
+   # Wait for Ollama to start (30 seconds), then pull the model
+   docker exec ollama ollama pull codellama:13b
+   # Or use the setup script
+   chmod +x scripts/setup-ollama.sh
+   ./scripts/setup-ollama.sh
+   ```
+
+3. **Verify it's running:**
    ```bash
    curl http://localhost:3000/health
    docker-compose logs -f
    ```
+
+**Note**: See [deployment/AI_SETUP.md](deployment/AI_SETUP.md) for detailed AI model setup and recommendations.
 
 See [deployment/README.md](deployment/README.md) for detailed deployment instructions including:
 - Docker deployment
@@ -150,6 +162,22 @@ CodeReviewer/
 └── README.md
 ```
 
+## AI Models
+
+This project uses **Ollama** to run self-hosted AI models locally. No internet connection is required.
+
+### Recommended Models:
+- **CodeLlama 13B** (`codellama:13b`) - Best for code review, ~7GB RAM
+- **Mistral 7B** (`mistral:7b`) - Faster, smaller, ~4GB RAM
+- **DeepSeek Coder 6.7B** (`deepseek-coder:6.7b`) - Code-specialized, ~4GB RAM
+
+See [deployment/AI_SETUP.md](deployment/AI_SETUP.md) for:
+- Complete model comparison
+- Setup instructions
+- GPU acceleration guide
+- Performance tuning
+- Troubleshooting
+
 ## Customization
 
 ### Adjusting AI Review Behavior
@@ -185,7 +213,11 @@ Consider adding rate limiting to avoid overwhelming GitLab or OpenAI APIs when p
   
 - **No comments posted**: Verify your GitLab token has the correct permissions (`api` scope)
 
-- **AI errors**: Check your OpenAI API key, account credits, and internet connectivity from the VM
+- **AI errors**: 
+  - Verify Ollama is running: `docker ps | grep ollama`
+  - Check if model is pulled: `docker exec ollama ollama list`
+  - Review AI service logs for specific errors
+  - See [deployment/AI_SETUP.md](deployment/AI_SETUP.md) for troubleshooting
 
 See [deployment/README.md](deployment/README.md) for more detailed troubleshooting.
 
