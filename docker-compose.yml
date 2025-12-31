@@ -1,6 +1,23 @@
 version: '3.8'
 
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - code-reviewer-network
+    # Uncomment if you need GPU support (requires nvidia-docker)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
   code-reviewer:
     build: .
     container_name: code-reviewer
@@ -10,7 +27,10 @@ services:
     environment:
       - GITLAB_TOKEN=${GITLAB_TOKEN}
       - GITLAB_HOST=${GITLAB_HOST}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AI_PROVIDER=${AI_PROVIDER:-ollama}
+      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-codellama:13b}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4-turbo-preview}
       - PORT=${PORT:-3000}
       - DEBUG=${DEBUG:-false}
@@ -19,12 +39,17 @@ services:
       - .env
     networks:
       - code-reviewer-network
+    depends_on:
+      - ollama
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
       interval: 30s
       timeout: 3s
       retries: 3
       start_period: 5s
+
+volumes:
+  ollama-data:
 
 networks:
   code-reviewer-network:
